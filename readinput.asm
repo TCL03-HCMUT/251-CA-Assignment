@@ -1,8 +1,8 @@
 .data
 fileName:   .asciiz "C:/Users/a/Desktop/input.txt"
-fileWords:  .space 2048        # buffer for file content
-.align 2                        # ensure word alignment
-int_array:  .space 2000        # 500 integers * 4 bytes
+fileWords:  .space 4096        # buffer for file content
+.align 2
+int_array:  .space 4000        # 500 floats × 4 bytes (stored as int*10)
 newline:    .asciiz "\n"
 
 .text
@@ -21,44 +21,61 @@ main:
     li $v0, 14
     move $a0, $s0
     la $a1, fileWords
-    li $a2, 2048        # buffer size
+    li $a2, 4096        # buffer size
     syscall
     move $s1, $v0       # number of bytes read
 
-    # --- CLOSE FILE AFTER READING ---
+    # --- CLOSE FILE ---
     li $v0, 16
     move $a0, $s0
     syscall
 
-    # --- PARSE NUMBERS INTO ARRAY ---
+    # --- PARSE FLOAT NUMBERS INTO ARRAY ---
     li $t0, 0       # buffer index
     li $t1, 0       # array index
-    li $t2, 0       # accumulator for current number
+    li $t2, 0       # accumulator for integer part
+    li $t3, 0       # decimal digit
     li $t9, 0       # neg_flag
     li $t5, 0       # number_pending flag
+    li $t6, 0       # decimal_flag (0=no decimal, 1=decimal seen)
 
 parse_loop:
-    beq $t0, $s1, store_last_number   # end of buffer
+    beq $t0, $s1, store_last_number
 
-    lb $t6, fileWords($t0)
+    lb $t7, fileWords($t0)
 
-    li $t7, 45       # '-'
-    beq $t6, $t7, set_neg
+    # check negative sign
+    li $t8, 45        # '-'
+    beq $t7, $t8, set_neg
 
-    li $t7, 10       # newline
-    beq $t6, $t7, store_number
+    # check newline
+    li $t8, 10
+    beq $t7, $t8, store_number
 
-    li $t8, 48       # '0'
-    li $t4, 57       # '9'
-    blt $t6, $t8, next_char
-    bgt $t6, $t4, next_char
+    # check decimal point
+    li $t8, 46        # '.'
+    beq $t7, $t8, set_decimal
 
-    sub $t6, $t6, $t8
+    # check digits 0-9
+    li $t8, 48
+    li $t4, 57
+    blt $t7, $t8, next_char_parse
+    bgt $t7, $t4, next_char_parse
+
+    sub $t7, $t7, $t8
+
+    beq $t6, 0, accumulate_int
+    # decimal digit
+    move $t3, $t7
+    li $t6, 2         # decimal processed
+    j next_char_parse
+
+accumulate_int:
     mul $t2, $t2, 10
-    add $t2, $t2, $t6
-    li $t5, 1       # number pending
+    add $t2, $t2, $t7
+    li $t5, 1         # number pending
 
-next_char:
+next_char_parse:
     addi $t0, $t0, 1
     j parse_loop
 
@@ -67,12 +84,26 @@ set_neg:
     addi $t0, $t0, 1
     j parse_loop
 
-store_number:
-    beq $t5, 0, skip_store  # no number accumulated
+set_decimal:
+    li $t6, 1
+    addi $t0, $t0, 1
+    j parse_loop
 
-    beq $t9, 0, store_positive
+store_number:
+    beq $t5, 0, skip_store
+
+    # combine integer and decimal
+    beq $t6, 0, no_decimal
+    mul $t2, $t2, 10
+    add $t2, $t2, $t3
+    j after_decimal
+no_decimal:
+    mul $t2, $t2, 10  # no decimal, scale by 10
+after_decimal:
+    # apply negative sign
+    beq $t9, 0, store_val
     neg $t2, $t2
-store_positive:
+store_val:
     sll $t7, $t1, 2
     la $t8, int_array
     add $t8, $t8, $t7
@@ -80,32 +111,53 @@ store_positive:
 
     addi $t1, $t1, 1
     li $t2, 0
+    li $t3, 0
+    li $t5, 0
+    li $t6, 0
     li $t9, 0
-    li $t5, 0       # reset number_pending
 
 skip_store:
     addi $t0, $t0, 1
     j parse_loop
 
 store_last_number:
-    beq $t5, 0, print_numbers  # store only if number pending
+    beq $t5, 0, print_numbers
     j store_number
 
-# --- PRINT NUMBERS ---
+# --- PRINT FLOATS ---
 print_numbers:
-    li $t3, 0        # print loop index
+    li $t3, 0
+
 print_loop:
     bge $t3, $t1, exit
 
     sll $t7, $t3, 2
     la $t8, int_array
     add $t8, $t8, $t7
-    lw $a0, 0($t8)
+    lw $t2, 0($t8)
 
-    li $v0, 1           # print integer
+    # extract integer and decimal
+    li $t9, 10
+    div $t2, $t9
+    mflo $a0       # integer part
+    mfhi $t4       # decimal digit
+
+    # print integer part
+    li $v0, 1
     syscall
 
-    li $v0, 4           # print newline
+    # print dot
+    li $v0, 11
+    li $a0, 46
+    syscall
+
+    # print decimal digit
+    move $a0, $t4
+    li $v0, 1
+    syscall
+
+    # print newline
+    li $v0, 4
     la $a0, newline
     syscall
 
