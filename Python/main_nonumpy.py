@@ -12,7 +12,7 @@ def autocorr_biased(x: List[float], maxlag: int) -> List[float]:
         s = 0.0
         for n in range(k, N):
             s += x[n] * x[n - k]
-        r.append(s / N)  # biased (divide by N)
+        r.append(s)  # biased (divide by N)
     return r
 
 def crosscorr_biased(x: List[float], d: List[float], maxlag: int) -> List[float]:
@@ -22,7 +22,7 @@ def crosscorr_biased(x: List[float], d: List[float], maxlag: int) -> List[float]
         s = 0.0
         for n in range(k, N):
             s += d[n] * x[n - k]
-        p.append(s / N)
+        p.append(s)
     return p
 
 def toeplitz_from_r(r: List[float], M: int) -> List[List[float]]:

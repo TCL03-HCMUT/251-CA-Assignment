@@ -1,9 +1,9 @@
 .data
-fileName:   .asciiz "C:/Users/a/Desktop/input.txt" # Make sure this path is correct
-fileWords:  .space 4096        # buffer for file content
+fileName:   .asciiz "input.txt" # Make sure this path is correct
+fileWords:  .space 8192        # buffer for file content
 .align 2
-int_array:  .space 4000        # Original array: 1000 integers (4 bytes each)
-float_array:.space 4000        # ADDED: New array to store actual floats
+int_array:  .space 8000        # Original array: 1000 integers (4 bytes each)
+float_array:.space 8000        # ADDED: New array to store actual floats
 newline:    .asciiz "\n"
 
 ten_float:  .float 10.0        # ADDED: The float value 10.0 for division
@@ -26,7 +26,7 @@ main:
     li $v0, 14
     move $a0, $s0
     la $a1, fileWords
-    li $a2, 4096        # buffer size (was 16384, 4096 is likely enough)
+    li $a2, 8192        # buffer size (was 16384, 4096 is likely enough)
     syscall
     move $s1, $v0       # number of bytes read
 
@@ -52,7 +52,7 @@ parse_loop:
     lb $t7, fileWords($t0)
     li $t8, 45
     beq $t7, $t8, set_neg
-    li $t8, 10
+    li $t8, 32
     beq $t7, $t8, store_number
     li $t8, 46
     beq $t7, $t8, set_decimal

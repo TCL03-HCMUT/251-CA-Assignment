@@ -1,23 +1,14 @@
-# -----------------------------------------------------------------------------
-# MIPS Program: Read and Parse Floating-Point Numbers from a Large File
-#
-# Description:
-# This program reads a text file ("input.txt") containing floating-point
-# numbers with one decimal place, separated by spaces. It correctly handles
-# large files (>4KB) by reading in chunks, parses the numbers into a float
-# array, and then prints each number to the console on a new line.
-#
-# Syntax: Standard MIPS Assembly (one instruction per line).
-# -----------------------------------------------------------------------------
-
 .data
-    input:      .asciiz "input.txt"
+    input:      .asciiz "desired.txt"
+    desired:	.asciiz "input.txt"
+    
 
     # Use large buffers to safely handle large files.
-    fileWords:  .space 16384       # Buffer for file content
+    fileWords:  .space 8192       # Buffer for file content
     .align 2
-    # Allocate space for ~2000 numbers to be safe.
-    input_array: .space 8000        # Array for floats from input.txt
+    # Allocate space for 500 numbers
+    input_array: .space 2000        # Array for floats from input.txt
+    desired_array: .space 2000	   # Array for floats from desired.txt
 
     newline:    .asciiz "\n"
     ten_float:  .float 10.0        # Constant 10.0 for division
@@ -36,6 +27,11 @@ main:
     # We must save it because the print syscalls will overwrite $v0.
     move $s2, $v0           # Save float count in a saved register, $s2
 
+    la $a0, desired           # Arg 0: file name address
+    la $a1, desired_array     # Arg 1: array address
+    jal inputFile           # Call the function
+    
+    move $s3, $v0
     # Fall through to the printing section
     j print_floats
     
@@ -48,16 +44,14 @@ main:
 # Returns:   $v0: The number of floats successfully read.
 # -----------------------------------------------------------------
 inputFile:
-    # --- Function Prologue: Save registers that will be modified ---
-    addi $sp, $sp, -24
-    sw $ra, 20($sp)     # Save return address
-    sw $s0, 16($sp)     # Save registers we will use
-    sw $s1, 12($sp)
-    sw $a0, 8($sp)      # Save original arguments
-    sw $a1, 4($sp)
+    addi $sp, $sp, -16   
+    sw $s0, 12($sp)     
+    sw $s1, 8($sp)
+    sw $a0, 4($sp)      
+    sw $a1, 0($sp)
 
     # STAGE 1: OPEN FILE
-    lw $a0, 8($sp)      # Restore file name argument for syscall
+    lw $a0, 4($sp)      # Restore file name argument for syscall
     li $v0, 13
     li $a1, 0
     li $a2, 0
@@ -83,7 +77,7 @@ done_reading:
     li $v0, 16
     move $a0, $s0
     syscall
-
+    
     # STAGE 4: PARSE BUFFER
     li $t0, 0
     li $t1, 0  # $t1 is our array index / float counter
@@ -159,7 +153,7 @@ store_val:
     div.s $f0, $f0, $f1
     
     sll $t7, $t1, 2
-    lw $t8, 4($sp)      # Get array base address from stack
+    lw $t8, 0($sp)      # array base address from stack
     add $t8, $t8, $t7
     s.s $f0, 0($t8)
     
@@ -196,34 +190,28 @@ store_val_last:
     div.s $f0, $f0, $f1
     
     sll $t7, $t1, 2
-    lw $t8, 4($sp)      # Use LW to load the array base address
+    lw $t8, 0($sp)      # Use LW to load the array base address
     add $t8, $t8, $t7
     s.s $f0, 0($t8)
     
     addi $t1, $t1, 1    # Increment the final count
 
-# --- Function Epilogue: Prepare return value and restore stack ---
 exit_inputFile:
-    move $v0, $t1       # Set the return value to the number of floats found
+    move $v0, $t1
 
-    # Restore saved registers and stack pointer
-    lw $ra, 20($sp)
-    lw $s0, 16($sp)
-    lw $s1, 12($sp)
-    lw $a0, 8($sp)
-    lw $a1, 4($sp)
-    addi $sp, $sp, 24
+    lw $s0, 12($sp)
+    lw $s1, 8($sp)
+    lw $a0, 4($sp)
+    lw $a1, 0($sp)
+    addi $sp, $sp, 16
     
-    jr $ra              # Return to the caller (main)
+    jr $ra
 
-# -----------------------------------------------------------------
-# STAGE 6: PRINT THE FLOATS FROM THE ARRAY
-# -----------------------------------------------------------------
 print_floats:
     li $t3, 0           # Loop counter i = 0
 
 print_loop:
-    bge $t3, $s2, exit  # Use the saved count in $s2 as the loop limit
+    bge $t3, $s2, done  # Use the saved count in $s2 as the loop limit
 
     # Calculate address of input_array[i]
     sll $t7, $t3, 2
@@ -240,6 +228,26 @@ print_loop:
 
     addi $t3, $t3, 1    # i++
     j print_loop
+done:
+    li $t3, 0 
+print_loop2:
+    bge $t3, $s3, exit  # Use the saved count in $s2 as the loop limit
+
+    # Calculate address of input_array[i]
+    sll $t7, $t3, 2
+    la $t8, desired_array 
+    add $t8, $t8, $t7
+    lwc1 $f12, 0($t8)   # Load float into $f12 for printing
+
+    li $v0, 2
+    syscall             # Print float
+    
+    li $v0, 4
+    la $a0, newline
+    syscall             # Print newline
+
+    addi $t3, $t3, 1    # i++
+    j print_loop2
 
 exit:
     li $v0, 10
