@@ -3,7 +3,7 @@ from typing import List
 
 def read_signal(path: str) -> List[float]:
     with open(path, "r") as f:
-        return [float(line.strip()) for line in f if line.strip() != ""]
+        return list(map(float, f.readlines()[0].strip().split()))
 
 def autocorr_biased(x: List[float], maxlag: int) -> List[float]:
     N = len(x)
@@ -92,6 +92,7 @@ def main():
 
     x = read_signal(args.input)
     d = read_signal(args.desired)
+    print(len(x), len(d))
     if len(x) != len(d):
         raise ValueError("input and desired must have same length")
 
@@ -113,7 +114,7 @@ def main():
             f.write(f"{wi:.6f}\n")
     with open("wiener_output.txt", "w") as f:
         for yi in y:
-            f.write(f"{yi:.6f}\n")
+            f.write(f"{yi:.6f} ")
 
     print(f"Order={M}, MSE={mse:.6f}")
 
