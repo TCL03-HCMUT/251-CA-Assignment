@@ -1,10 +1,11 @@
 import numpy as np
 
 count = 500
+scale = 10000
 np.random.seed(0)
 noise = np.random.normal(0, 1, count)
-noise = noise / np.max(np.abs(noise)) * 5
+noise = noise / np.max(np.abs(noise)) * scale
 
 with open("noise.txt", "w") as file:
     for value in noise:
-        file.write(f"{round(value, 1)}\n")
+        file.write(f"{round(value, 1)} ")
