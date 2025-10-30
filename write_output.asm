@@ -1,34 +1,84 @@
 .data
-	testing_str: .asciiz "Hello World!"
-	newLine: .asciiz "\n"
-	testing_len: .word 12
+	output_file: .asciiz "output.txt"
+	test_array: .float 1.0, 2.0, 3.0, 4.0, 5.0, 8.0, -1.4, 9.3, -123.1
+	whitespace: .asciiz " "
 	buffer: .space 10
-	test_float: .float -123.1
 	float_10: .float 10.0
 	float_0: .float 0.0
 .text
 main:
-	l.s $f12, test_float
-	la $a0, buffer
-	jal ftoa
-	
-	move $s0, $v0
-	move $s1, $v1
-	li $v0, 4
-	move $a0, $s0
-	syscall
-	
-	li $v0, 4
-	la $a0, newLine
-	syscall
-	
-	li $v0, 1
-	move $a0, $s1
-	syscall
+	la $a0, output_file
+	la $a1, test_array
+	li $a2, 9
+	jal write_to_file
+
 exit:
 	li $v0, 10
 	syscall
+# Writes an array of string to specified file
+# Arguments: $a0: string containing file name, $a1: array of floats, $a2: size of array
+# Returns: N/A
+write_to_file:
+	addi $sp, $sp, -24
+	sw $s0, 0($sp)
+	sw $s1, 4($sp)
+	sw $s2, 8($sp)
+	sw $s3, 12($sp)
+	sw $s4, 16($sp)
+	sw $ra, 20($sp)
 	
+	move $s0, $a0
+	move $s1, $a1
+	move $s2, $a2
+	
+	li $v0, 13
+	move $a0, $s0
+	li $a1, 1
+	li $a2, 0
+	syscall
+	
+	move $s3, $v0 #file descriptor
+	
+	li $s4, 0
+write_loop:
+	bge $s4, $s2, end_write
+	sll $t1, $s4, 2
+	add $t1, $s1, $t1
+	l.s $f12, 0($t1)
+	la $a0, buffer
+	jal ftoa
+	move $t2, $v0 #$t2 contains string to write
+	move $t3, $v1 #$t3 contains string length
+	
+	li $v0, 15
+	move $a0, $s3
+	move $a1, $t2
+	move $a2, $t3
+	syscall
+	
+	addi $s4, $s4, 1
+	beq $s4, $s2, skip_space
+	li $v0, 15
+	move $a0, $s3
+	la $a1, whitespace
+	li $a2, 1
+	syscall
+skip_space:
+	j write_loop
+	
+end_write:
+	li $v0, 16
+	move $a0, $s3
+	syscall
+	
+	lw $s0, 0($sp)
+	lw $s1, 4($sp)
+	lw $s2, 8($sp)
+	lw $s3, 12($sp)
+	lw $s4, 16($sp)
+	lw $ra, 20($sp)
+	addi $sp, $sp, 24
+	jr $ra
 # Reverse a string
 # Arguments: $a0: string to reverse, $a1: length of string
 # Returns: $v0: the address of the reversed string
