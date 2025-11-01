@@ -1,5 +1,6 @@
 import argparse
 from typing import List
+from pprint import pprint
 
 def read_signal(path: str) -> List[float]:
     with open(path, "r") as f:
@@ -12,7 +13,7 @@ def autocorr_biased(x: List[float], maxlag: int) -> List[float]:
         s = 0.0
         for n in range(k, N):
             s += x[n] * x[n - k]
-        r.append(s)  # biased (divide by N)
+        r.append(s / N)  # biased (divide by N)
     return r
 
 def crosscorr_biased(x: List[float], d: List[float], maxlag: int) -> List[float]:
@@ -22,7 +23,7 @@ def crosscorr_biased(x: List[float], d: List[float], maxlag: int) -> List[float]
         s = 0.0
         for n in range(k, N):
             s += d[n] * x[n - k]
-        p.append(s)
+        p.append(s / N)
     return p
 
 def toeplitz_from_r(r: List[float], M: int) -> List[List[float]]:
@@ -96,17 +97,26 @@ def main():
     if len(x) != len(d):
         raise ValueError("input and desired must have same length")
 
+# repeatedly applying the filter to converge to a result
     M = args.order
     r = autocorr_biased(x, M - 1)        # r[0..M-1]
     p = crosscorr_biased(x, d, M - 1)    # p[0..M-1]
     R = toeplitz_from_r(r, M)
-
+    with open("r_matrix.txt", "w") as file:
+        for line in R:
+            file.write(f"{list(map(lambda x : round(x, 1), line))}\n")
+    # print(R)
     # solve R w = p
     w = solve_linear(R, p)
 
     y = apply_fir(x, w)
+    x = y
     # compute MSE
     mse = sum((di - yi) ** 2 for di, yi in zip(d, y)) / len(d)
+    
+    # compute MMSE
+    mmse = sum(di**2 for di in d) / len(d) - sum(pi * wi for pi, wi in zip(p, w))
+    
 
     # save
     with open("wiener_coeffs.txt", "w") as f:
@@ -116,7 +126,7 @@ def main():
         for yi in y:
             f.write(f"{yi:.6f} ")
 
-    print(f"Order={M}, MSE={mse:.6f}")
+    print(f"Order={M}, MSE={mse:.6f}, MMSE={mmse:.6f}")
 
 if __name__ == "__main__":
     main()

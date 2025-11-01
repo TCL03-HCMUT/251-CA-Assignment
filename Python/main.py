@@ -4,7 +4,7 @@ import os
 
 def read_signal(path):
     with open(path, "r") as f:
-        return np.array([float(line.strip()) for line in f if line.strip() != ""])
+        return np.array(list(map(float, f.readlines()[0].strip().split())))
 
 def estimate_ac(x, maxlag, biased=True):
     N = len(x)
